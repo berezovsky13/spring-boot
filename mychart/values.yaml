@@ -1,7 +1,7 @@
 replicaCount: 1
 
 image:
-  repository: 211223789150.dkr.ecr.us-east-1.amazonaws.com/my-docker-repo
+  repository: 339712784473.dkr.ecr.us-east-1.amazonaws.com/daniel
   pullPolicy: IfNotPresent
   tag: ""
 
