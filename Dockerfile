@@ -1,14 +1,13 @@
-# Use an official OpenJDK image as a base image
-FROM openjdk:17-jdk-slim
+FROM node:18-alpine as build-stage
 
-# Set the working directory inside the container
 WORKDIR /app
+COPY package*.json ./
+RUN apk update && apk add --no-cache git
+RUN npm install
+COPY . .
+RUN npm run build_no_type_check
 
-# Copy the Maven build file to the container
-COPY target/demo-0.0.1-SNAPSHOT.jar app.jar
-
-# Expose the port the app runs on
-EXPOSE 8080
-
-# Command to run the application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+FROM nginx:stable-alpine as production-stage
+COPY --from=build-stage /app/dist /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
