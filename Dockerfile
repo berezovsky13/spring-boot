@@ -1,13 +1,12 @@
-FROM node:18-alpine as build-stage
-
+# Stage 1: Build the Spring Boot application
+FROM maven:3.8.1-openjdk-17 AS build
 WORKDIR /app
-COPY package*.json ./
-RUN apk update && apk add --no-cache git
-RUN npm install
 COPY . .
-RUN npm run build_no_type_check
+RUN mvn clean package -DskipTests
 
-FROM nginx:stable-alpine as production-stage
-COPY --from=build-stage /app/dist /usr/share/nginx/html
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+# Stage 2: Run the Spring Boot application
+FROM openjdk:17-jdk-slim
+WORKDIR /app
+COPY --from=build /app/target/hello-daniel-0.0.1-SNAPSHOT.jar /app/hello-daniel.jar
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "/app/hello-daniel.jar"]

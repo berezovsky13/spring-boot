@@ -1,29 +1,26 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "mychart.fullname" . }}
+  name: {{ .Release.Name }}
   labels:
-    app: {{ include "mychart.name" . }}
+    app: nginx
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: 1
   selector:
     matchLabels:
-      app: {{ include "mychart.name" . }}
+      app: nginx
   template:
     metadata:
       labels:
-        app: {{ include "mychart.name" . }}
-      annotations:
-        {{- toYaml .Values.podAnnotations | nindent 8 }}
+        app: nginx
     spec:
-      serviceAccountName: {{ include "mychart.serviceAccountName" . }}
-      securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
-        - name: {{ .Chart.Name }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          ports:
-            - containerPort: 80
-          securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
+      - name: nginx
+        image: 339713057693.dkr.ecr.us-east-1.amazonaws.com/quark-test
+        #quark-frontend image v1
+        resources:
+          limits:
+            memory: "256Mi"
+            cpu: "0.125"
+        ports:
+        - containerPort: 80
