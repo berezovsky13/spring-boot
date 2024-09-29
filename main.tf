@@ -150,6 +150,27 @@ resource "aws_iam_role_policy_attachment" "eks-demo-cluster-01-AmazonEKSClusterP
   role       = aws_iam_role.eks-demo-cluster-admin-role-01.name
 }
 
+resource "aws_iam_role" "alb_controller_role" {
+  name               = "alb-controller-role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "eks.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "alb_controller_policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSLoadBalancerControllerPolicy"
+  role       = aws_iam_role.alb_controller_role.name
+}
+
 # eks-cluster-05
 # Optionally, enable Security Groups for Pods
 # Reference: https://docs.aws.amazon.com/eks/latest/userguide/security-groups-for-pods.html
