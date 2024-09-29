@@ -150,26 +150,7 @@ resource "aws_iam_role_policy_attachment" "eks-demo-cluster-01-AmazonEKSClusterP
   role       = aws_iam_role.eks-demo-cluster-admin-role-01.name
 }
 
-resource "aws_iam_role" "alb_controller_role" {
-  name               = "alb-controller-role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = {
-          Service = "eks.amazonaws.com"
-        }
-        Action = "sts:AssumeRole"
-      }
-    ]
-  })
-}
 
-resource "aws_iam_role_policy_attachment" "alb_controller_policy" {
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSLoadBalancerControllerPolicy"
-  role       = aws_iam_role.alb_controller_role.name
-}
 
 # eks-cluster-05
 # Optionally, enable Security Groups for Pods
@@ -326,15 +307,7 @@ resource "helm_release" "aws_load_balancer_controller" {
     value = aws_vpc.eks-demo-vpc-01.id
   }
 
-  depends_on = [
-    aws_iam_role_policy_attachment.alb_controller_policy
-  ]
+  
 }
 
 
-resource "null_resource" "get-demo-nginx-url" {
-  provisioner "local-exec" {
-    command = "kubectl get svc demo-nginx"
-  }
-  depends_on = [helm_release.demo-nginx]
-}
