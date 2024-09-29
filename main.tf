@@ -195,6 +195,6 @@ resource "helm_release" "mychart" {
   namespace  = "default"
   
   values = [
-    file("${path.module}/values.yaml")
+    file("./values.yaml")
   ]
 }
