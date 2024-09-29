@@ -1,278 +1,171 @@
-# main.tf
-# //////////////////////////////
-#          Providers
-# //////////////////////////////
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "5.31.0"
-    }
-    helm = {
-      source = "hashicorp/helm"
-      version = "2.13.1"
-    }
-  }
-}
-
-# Configure the AWS Provider
 provider "aws" {
-  region = "us-east-1"
-  default_tags {
-    tags = {
-      Name = "create-by-terraform-EKS-Demo-need-tag"
-    }
-  }
+  region = "us-east-1"  # Adjust to your preferred AWS region
 }
 
-# Exec plugins
-provider "helm" {
-  kubernetes {    
-    host                   = aws_eks_cluster.eks-demo-cluster-01.endpoint
-    cluster_ca_certificate = base64decode(aws_eks_cluster.eks-demo-cluster-01.certificate_authority[0].data)
-    exec {
-      api_version = "client.authentication.k8s.io/v1beta1"
-      args        = ["eks", "get-token", "--cluster-name", "eks-demo-cluster-01"]
-      command     = "aws"
-    }
-  }
-}
-# Using a kubeconfig file
-#provider "helm" {
-#  kubernetes {        
-#    config_path = "~/.kube/config"
-#  }
-#}
-
-# //////////////////////////////
-#          Resources
-# //////////////////////////////
-
-# VPC-01
-# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/vpc
-resource "aws_vpc" "eks-demo-vpc-01" {
+# -------------------------
+# VPC
+# -------------------------
+resource "aws_vpc" "eks_vpc" {
   cidr_block = "10.0.0.0/16"
   tags = {
-    Name = "eks-demo-vpc-01"
+    Name = "eks-vpc"
   }
 }
-# VPC-02
-# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/subnet
-resource "aws_subnet" "eks-demo-public-01" {
+
+resource "aws_subnet" "eks_subnet_a" {
+  vpc_id                  = aws_vpc.eks_vpc.id
   cidr_block              = "10.0.1.0/24"
   availability_zone       = "us-east-1a"
-  vpc_id                  = aws_vpc.eks-demo-vpc-01.id
   map_public_ip_on_launch = true
   tags = {
-    Name = "eks-demo-public-01"
+    Name = "eks-subnet-a"
   }
 }
 
-
-
-# VPC-03
-# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/subnet
-resource "aws_subnet" "eks-demo-public-02" {
+resource "aws_subnet" "eks_subnet_b" {
+  vpc_id                  = aws_vpc.eks_vpc.id
   cidr_block              = "10.0.2.0/24"
   availability_zone       = "us-east-1b"
-  vpc_id                  = aws_vpc.eks-demo-vpc-01.id
   map_public_ip_on_launch = true
   tags = {
-    Name = "eks-demo-public-02"
+    Name = "eks-subnet-b"
   }
 }
 
-# VPC-05
-# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/internet_gateway
-resource "aws_internet_gateway" "eks-demo-internet-gateway-01" {
-  vpc_id = aws_vpc.eks-demo-vpc-01.id
+resource "aws_internet_gateway" "eks_igw" {
+  vpc_id = aws_vpc.eks_vpc.id
   tags = {
-    Name = "eks-demo-internet-gateway-01"
+    Name = "eks-igw"
   }
 }
 
+resource "aws_route_table" "eks_route_table" {
+  vpc_id = aws_vpc.eks_vpc.id
 
-# VPC-04
-# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.eks_igw.id
+  }
 
-resource "aws_route" "eks-internet_access" {
-  route_table_id         = aws_vpc.eks-demo-vpc-01.main_route_table_id
-  destination_cidr_block = "0.0.0.0/0"
-  gateway_id             = aws_internet_gateway.eks-demo-internet-gateway-01.id
-
+  tags = {
+    Name = "eks-route-table"
+  }
 }
 
-# eks-cluster-01
-# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/eks_cluster
-resource "aws_eks_cluster" "eks-demo-cluster-01" {
-  name     = "eks-demo-cluster-01"
+resource "aws_route_table_association" "eks_route_association_a" {
+  subnet_id      = aws_subnet.eks_subnet_a.id
+  route_table_id = aws_route_table.eks_route_table.id
+}
+
+resource "aws_route_table_association" "eks_route_association_b" {
+  subnet_id      = aws_subnet.eks_subnet_b.id
+  route_table_id = aws_route_table.eks_route_table.id
+}
+
+# -------------------------
+# EKS Cluster
+# -------------------------
+resource "aws_eks_cluster" "eks_cluster" {
+  name     = "eks-demo-cluster"
   version  = "1.28"
-  role_arn = aws_iam_role.eks-demo-cluster-admin-role-01.arn
+  role_arn = aws_iam_role.eks_role.arn
 
   vpc_config {
-    subnet_ids              = [aws_subnet.eks-demo-public-01.id,aws_subnet.eks-demo-public-02.id]
-    endpoint_public_access  = true
-    endpoint_private_access = true
-    public_access_cidrs     = ["0.0.0.0/0"]
-  }
-  depends_on = [
-    aws_iam_role_policy_attachment.eks-demo-cluster-01-AmazonEKSClusterPolicy,aws_iam_role_policy_attachment.eks-demo-cluster-01-AmazonEKSVPCResourceController
-  ]
-  tags = {
-    demo = "eks"
+    subnet_ids = [
+      aws_subnet.eks_subnet_a.id,
+      aws_subnet.eks_subnet_b.id
+    ]
   }
 }
 
-# eks-cluster-02
-# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document
-data "aws_iam_policy_document" "eks-demo-cluster-admin-role-policy" {
-  statement {
-    effect = "Allow"
-    principals {
-      type        = "Service"
-      identifiers = ["eks.amazonaws.com"]
-    }
+resource "aws_iam_role" "eks_role" {
+  name = "eks-cluster-role"
 
-    actions = ["sts:AssumeRole"]
-  }
-}
-
-# eks-cluster-03
-# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role
-resource "aws_iam_role" "eks-demo-cluster-admin-role-01" {
-  name               = "eks-demo-cluster-admin-role-01"
-  assume_role_policy = data.aws_iam_policy_document.eks-demo-cluster-admin-role-policy.json
-}
-
-# eks-cluster-04
-resource "aws_iam_role_policy_attachment" "eks-demo-cluster-01-AmazonEKSClusterPolicy" {
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
-  role       = aws_iam_role.eks-demo-cluster-admin-role-01.name
-}
-
-
-
-# eks-cluster-05
-# Optionally, enable Security Groups for Pods
-# Reference: https://docs.aws.amazon.com/eks/latest/userguide/security-groups-for-pods.html
-resource "aws_iam_role_policy_attachment" "eks-demo-cluster-01-AmazonEKSVPCResourceController" {
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSVPCResourceController"
-  role       = aws_iam_role.eks-demo-cluster-admin-role-01.name
-}
-
-# eks-cluster-06
-# Addones
-# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/eks_addon
-
-resource "aws_eks_addon" "eks-demo-addon-coredns" {
-  cluster_name                = aws_eks_cluster.eks-demo-cluster-01.name
-  addon_name                  = "coredns"
-  addon_version               = "v1.10.1-eksbuild.2" 
-  resolve_conflicts_on_create = "OVERWRITE" 
-}
-
-# eks-cluster-07
-resource "aws_eks_addon" "eks-demo-addon-kube-proxy" {
-  cluster_name                = aws_eks_cluster.eks-demo-cluster-01.name
-  addon_name                  = "kube-proxy"
-  addon_version               = "v1.28.1-eksbuild.1" 
-  resolve_conflicts_on_create = "OVERWRITE" 
-}
-
-# eks-cluster-08
-resource "aws_eks_addon" "eks-demo-addon-vpc-cni" {
-  cluster_name                = aws_eks_cluster.eks-demo-cluster-01.name
-  addon_name                  = "vpc-cni"
-  addon_version               = "v1.14.1-eksbuild.1" 
-  resolve_conflicts_on_create = "OVERWRITE" 
-}
-
-
-output "endpoint" {
-  value = aws_eks_cluster.eks-demo-cluster-01.endpoint
-}
-
-output "kubeconfig-certificate-authority-data" {
-  value = aws_eks_cluster.eks-demo-cluster-01.certificate_authority[0].data
-}
-
-
-
-# eks-cluster-09
-# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/eks_node_group
-
-resource "aws_eks_node_group" "eks-demo-ec2-node-group-01" {
-  cluster_name    = aws_eks_cluster.eks-demo-cluster-01.name
-  node_group_name = "eks-demo-node-group-01"
-  node_role_arn   = aws_iam_role.eks-demo-ec2-node-group-role-01.arn
-  subnet_ids      = [aws_subnet.eks-demo-public-01.id,aws_subnet.eks-demo-public-02.id]
-  instance_types  = ["t3.medium"]
-
-  scaling_config {
-    desired_size = 1
-    max_size     = 1
-    min_size     = 1
-  }
-
-  depends_on = [
-    aws_iam_role_policy_attachment.eks-demo-node-group-AmazonEKSWorkerNodePolicy,
-    aws_iam_role_policy_attachment.eks-demo-node-group-AmazonEKS_CNI_Policy,
-    aws_iam_role_policy_attachment.eks-demo-node-group-AmazonEC2ContainerRegistryReadOnly,
-  ]
-  labels = {
-    demo = "eks", 
-    eksNodeGroup = "t3_medium"
-  }
-}
-
-# eks-cluster-10
-# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role
-resource "aws_iam_role" "eks-demo-ec2-node-group-role-01" {
-  name = "eks-demo-ec2-node-group-role-01"
   assume_role_policy = jsonencode({
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = {
-        Service = "ec2.amazonaws.com"
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Principal = {
+          Service = "eks.amazonaws.com"
+        },
+        Action = "sts:AssumeRole"
       }
-    }]
-    Version = "2012-10-17"
+    ]
   })
 }
 
-# eks-cluster-11
-resource "aws_iam_role_policy_attachment" "eks-demo-node-group-AmazonEKSWorkerNodePolicy" {
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
-  role       = aws_iam_role.eks-demo-ec2-node-group-role-01.name
+resource "aws_iam_role_policy_attachment" "eks_cluster_policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
+  role       = aws_iam_role.eks_role.name
 }
 
-# eks-cluster-12
-resource "aws_iam_role_policy_attachment" "eks-demo-node-group-AmazonEKS_CNI_Policy" {
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
-  role       = aws_iam_role.eks-demo-ec2-node-group-role-01.name
+resource "aws_iam_role_policy_attachment" "eks_vpc_controller_policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSVPCResourceController"
+  role       = aws_iam_role.eks_role.name
 }
 
-# eks-cluster-13
-resource "aws_iam_role_policy_attachment" "eks-demo-node-group-AmazonEC2ContainerRegistryReadOnly" {
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
-  role       = aws_iam_role.eks-demo-ec2-node-group-role-01.name
-}
+# -------------------------
+# EKS Node Group
+# -------------------------
+resource "aws_eks_node_group" "eks_node_group" {
+  cluster_name    = aws_eks_cluster.eks_cluster.name
+  node_group_name = "eks-node-group"
+  node_role_arn   = aws_iam_role.eks_node_role.arn
+  subnet_ids      = [aws_subnet.eks_subnet_a.id, aws_subnet.eks_subnet_b.id]
 
-# Run the update-kubeconfig command after the EKS cluster is created
-resource "null_resource" "update_kubeconfig" {
-  provisioner "local-exec" {
-    command = "aws eks update-kubeconfig --region us-east-1 --name ${aws_eks_cluster.eks-demo-cluster-01.name}"
+  scaling_config {
+    desired_size = 2
+    max_size     = 3
+    min_size     = 1
   }
-  depends_on = [aws_eks_cluster.eks-demo-cluster-01]
 }
 
-resource "helm_release" "demo-nginx" {
-  name       = "demo-nginx"
-  repository = "https://lianduantrain.github.io/HelmTerraformEKS/stable"
-  chart      = "demo-nginx-chart"
-  version    = "0.2.0"
-  depends_on = [aws_eks_node_group.eks-demo-ec2-node-group-01]
+resource "aws_iam_role" "eks_node_role" {
+  name = "eks-node-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        },
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "eks_worker_node_policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+  role       = aws_iam_role.eks_node_role.name
+}
+
+resource "aws_iam_role_policy_attachment" "eks_cni_policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+  role       = aws_iam_role.eks_node_role.name
+}
+
+resource "aws_iam_role_policy_attachment" "ec2_container_registry_policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+  role       = aws_iam_role.eks_node_role.name
+}
+
+# -------------------------
+# Helm for ALB Controller
+# -------------------------
+provider "helm" {
+  kubernetes {
+    host                   = aws_eks_cluster.eks_cluster.endpoint
+    cluster_ca_certificate = base64decode(aws_eks_cluster.eks_cluster.certificate_authority.0.data)
+    token                  = data.aws_eks_cluster_auth.eks_auth.token
+  }
+}
+
+data "aws_eks_cluster_auth" "eks_auth" {
+  name = aws_eks_cluster.eks_cluster.name
 }
 
 resource "helm_release" "aws_load_balancer_controller" {
@@ -280,21 +173,10 @@ resource "helm_release" "aws_load_balancer_controller" {
   repository = "https://aws.github.io/eks-charts"
   chart      = "aws-load-balancer-controller"
   namespace  = "kube-system"
-  version    = "1.4.7"
 
   set {
     name  = "clusterName"
-    value = aws_eks_cluster.eks-demo-cluster-01.name
-  }
-
-  set {
-    name  = "serviceAccount.create"
-    value = false
-  }
-
-  set {
-    name  = "serviceAccount.name"
-    value = "aws-load-balancer-controller"
+    value = aws_eks_cluster.eks_cluster.name
   }
 
   set {
@@ -304,10 +186,15 @@ resource "helm_release" "aws_load_balancer_controller" {
 
   set {
     name  = "vpcId"
-    value = aws_vpc.eks-demo-vpc-01.id
+    value = aws_vpc.eks_vpc.id
   }
-
-  
 }
-
-
+resource "helm_release" "mychart" {
+  name       = "mychart"
+  chart      = "./mychart"
+  namespace  = "default"
+  
+  values = [
+    file("${path.module}/values.yaml")
+  ]
+}
