@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: nginx
-        image: 339713057693.dkr.ecr.us-east-1.amazonaws.com/quark-test
+        image: 339712784473.dkr.ecr.us-east-1.amazonaws.com/daniel
         #quark-frontend image v1
         resources:
           limits:

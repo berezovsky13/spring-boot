@@ -273,6 +273,44 @@ resource "helm_release" "demo-nginx" {
   depends_on = [aws_eks_node_group.eks-demo-ec2-node-group-01]
 }
 
+resource "helm_release" "aws_load_balancer_controller" {
+  name       = "aws-load-balancer-controller"
+  repository = "https://aws.github.io/eks-charts"
+  chart      = "aws-load-balancer-controller"
+  namespace  = "kube-system"
+  version    = "1.4.7"
+
+  set {
+    name  = "clusterName"
+    value = aws_eks_cluster.eks-demo-cluster-01.name
+  }
+
+  set {
+    name  = "serviceAccount.create"
+    value = false
+  }
+
+  set {
+    name  = "serviceAccount.name"
+    value = "aws-load-balancer-controller"
+  }
+
+  set {
+    name  = "region"
+    value = "us-east-1"
+  }
+
+  set {
+    name  = "vpcId"
+    value = aws_vpc.eks-demo-vpc-01.id
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.alb_controller_policy
+  ]
+}
+
+
 resource "null_resource" "get-demo-nginx-url" {
   provisioner "local-exec" {
     command = "kubectl get svc demo-nginx"

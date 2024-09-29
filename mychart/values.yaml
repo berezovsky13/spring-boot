@@ -1,4 +1,19 @@
+replicaCount: 2
+
+image:
+  repository: 123456789012.dkr.ecr.us-east-1.amazonaws.com/my-app
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
 service:
+  type: ClusterIP
   port: 80
-  targetPort: 80
-  type: LoadBalancer
+  targetPort: 8080
+
+alb:
+  host: "my-app.example.com"
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'

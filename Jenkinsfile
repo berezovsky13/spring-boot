@@ -85,6 +85,7 @@ pipeline {
             steps {
                 // Apply Terraform configurations
                 sh 'terraform apply -auto-approve'
+                
             }
         }
     }
