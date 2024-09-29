@@ -1,19 +1,21 @@
 replicaCount: 2
 
 image:
-  repository: 123456789012.dkr.ecr.us-east-1.amazonaws.com/my-app
-  tag: "latest"
+  repository: nginx
+  tag: "1.16.0"
   pullPolicy: IfNotPresent
 
 service:
   type: ClusterIP
   port: 80
-  targetPort: 8080
 
-alb:
-  host: "my-app.example.com"
+ingress:
+  enabled: true
   annotations:
     kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+  hosts:
+    - host: your-app.example.com
+      paths:
+        - "/"
+  tls: []
