@@ -66,7 +66,7 @@ resource "aws_route_table_association" "eks_route_association_b" {
 # EKS Cluster
 # -------------------------
 resource "aws_eks_cluster" "eks_cluster" {
-  name     = "eks-demo-cluster"
+  name     = "daniel-cluster"
   version  = "1.28"
   role_arn = aws_iam_role.eks_role.arn
 
