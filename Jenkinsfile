@@ -11,7 +11,7 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 // Checkout code from your repository
-                git branch: 'master', url: 'https://github.com/berezovsky13/spring-boot.git'
+                git branch: 'main', url: 'https://github.com/berezovsky13/spring-boot.git'
             }
         }
 
