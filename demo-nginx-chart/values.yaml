@@ -1,4 +1,0 @@
-service:
-  port: 80
-  targetPort: 80
-  type: LoadBalancers
