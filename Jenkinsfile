@@ -11,7 +11,7 @@ pipeline {
         stage('Build') {
             steps {
                 withMaven(maven: 'Maven-3.8.5') { 
-                    sh 'mvn clean package'
+                    bat 'mvn clean package'
                 }
             }
         } 
