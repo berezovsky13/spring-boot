@@ -10,9 +10,7 @@ pipeline {
         }
         stage('Build') {
             steps {
-                withMaven(maven: 'Maven-3.8.5') { 
-                    bat 'mvn clean package'
-                }
+                bat 'mvn clean package'
             }
         } 
     }
